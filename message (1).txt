@@ -1,0 +1,74 @@
+
+        # Utilizing inventory well
+
+        if desiredPositions["Red Pens"] == 0 or desiredPositions["UQ Dollar"] == 0:
+            if (desiredPositions["Fintech Token"] < 0):
+                desiredPositions["Fintech Token"] = -positionLimits["Fintech Token"]
+            if (desiredPositions["Fintech Token"] > 0):
+                desiredPositions["Fintech Token"] = positionLimits["Fintech Token"]
+
+        totalSpent = 0
+
+        for instrument, positionLimit in positionLimits.items():
+            totalSpent += abs(desiredPositions[instrument]*self.get_current_price(instrument))
+
+        if totalSpent < 500000:
+            amountToSpend = 500000 - totalSpent
+            numberOfCoffeeBean = int(amountToSpend / self.get_current_price("Coffee Beans"))
+            if(abs(int(Direction*numberOfCoffeeBean)) > 200):
+                desiredPositions["Coffee Beans"] = int(Direction*positionLimits["Coffee Beans"])    
+            else:
+                desiredPositions["Coffee Beans"] = int(Direction*numberOfCoffeeBean)
+            
+        # Profitability ranking: (from least to most profitable)
+        profitability_ranking = ["Coffee Beans", "Red Pens", "Milk", "UQ Dollar", 
+                                "Fintech Token", "Thrifted Jeans", "Coffee", "Goober Eats", "Fun Drink"]
+
+        # Assuming 'data' is a pandas Series
+        frac = 0.12  # Fraction of data used when estimating each y-value
+        lowess = sm.nonparametric.lowess
+        smoothed_data = lowess(self.data["Fun Drink"], range(0,self.day+1), frac=frac)[:, 1]
+
+        if self.get_current_price("Fun Drink") > smoothed_data[-1]:
+            desiredPositions["Fun Drink"] = -positionLimits["Fun Drink"]
+        if self.get_current_price("Fun Drink") < smoothed_data[-1]:
+            desiredPositions["Fun Drink"] = positionLimits["Fun Drink"]
+        if self.get_current_price("Fun Drink") == smoothed_data[-1]:
+            print("Here")
+
+
+        # Calculate the total current value of the desired positions
+        totalValue = 0
+        for instrument in desiredPositions:
+            totalValue += abs(desiredPositions[instrument] * self.get_current_price(instrument))
+
+        # Define the maximum allowed inventory value
+        maxInventoryValue = 499997
+
+        # If the total value exceeds the limit, start reducing positions
+        if totalValue > maxInventoryValue:
+            excessValue = totalValue - maxInventoryValue
+            
+            # Go through the instruments based on profitability ranking
+            for instrument in profitability_ranking:
+                # If the instrument is part of desired positions and there is still excess value to reduce
+                if instrument in desiredPositions and excessValue > 0:
+                    # Calculate the value of the current position
+                    instrumentValue = abs(desiredPositions[instrument] * self.get_current_price(instrument))
+                    
+                    # Determine how much to reduce
+                    if instrumentValue <= excessValue:
+                        # Reduce the full position if it doesn't cover the excess
+                        excessValue -= instrumentValue
+                        desiredPositions[instrument] = 0  # Set position to zero
+                    else:
+                        # Reduce part of the position to cover the remaining excess
+                        reductionAmount = excessValue / self.get_current_price(instrument)
+                        desiredPositions[instrument] -= int(np.sign(desiredPositions[instrument]) * reductionAmount)
+                        excessValue = 0  # Excess value is now covered
+
+
+
+        #######################################################################
+        # Return the desired positions
+        return desiredPositions
