@@ -13,23 +13,23 @@ class Algorithm():
     ########################################################
     # FUNCTION TO SETUP ALGORITHM CLASS
     def __init__(self, positions):
-        # Initialise data stores:
+       
         self.data = {}
-        # Initialise position limits
+      
         self.positionLimits = {}
-        # Initialise the current day as 0
+      
         self.day = 0
-        # Initialise the current positions
+       
         self.positions = positions
         self.var_model = None
         self.scaler = StandardScaler()
         self.lookback = 1.1
-        self.threshold = 0.0005  # Lowered threshold for increased sensitivity
+        self.threshold = 0.0005 
         self.lag_order = 1
         self.var_instruments = ['Fried Chicken', 'Raw Chicken', 'Secret Spices']
         self.totalDailyBudget = 500000 
 
-    # Helper function to fetch the current price of an instrument
+    
     def get_current_price(self, instrument):
         return self.data[instrument][-1]
     ########################################################
@@ -51,19 +51,18 @@ class Algorithm():
         self.apply_regression_model(positionLimits, desiredPositions)
         # IMPLEMENT CODE HERE TO DECIDE WHAT POSITIONS YOU WANT 
         #######################################################################
-        # Buy Dawg Food maximum amount
         desiredPositions["UQ Dollar"] = self.get_uq_dollar_position(currentPositions["UQ Dollar"], positionLimits["UQ Dollar"])
-        desiredPositions['Dawg Food'] = self.get_jeans_position()
-        desiredPositions["Quantum Universal Algorithmic Currency Koin"] = self.get_red_pens_position(currentPositions["Quantum Universal Algorithmic Currency Koin"], positionLimits["Quantum Universal Algorithmic Currency Koin"])
+        desiredPositions['Dawg Food'] = self.get_dwgFood_position()
+        desiredPositions["Quantum Universal Algorithmic Currency Koin"] = self.get_quack_position(currentPositions["Quantum Universal Algorithmic Currency Koin"], positionLimits["Quantum Universal Algorithmic Currency Koin"])
         desiredPositions["Goober Eats"] = self.get_goober_eats_position()
         
         # apply Purple Elixir strategy
-        self.get_fun_drink_position(desiredPositions, positionLimits)
+        self.get_prplelixr_position(desiredPositions, positionLimits)
         #desiredPositions["Fintech Token"] = self.get_token_position(currentPositions["Fintech Token"], positionLimits["Fintech Token"])
         self.apply_arima_model("Fintech Token", positionLimits, desiredPositions, p=2, d=1, q=1)
         # Apply Regression Model for Fried Chicken
         self.apply_regression_model(positionLimits, desiredPositions)
-        # Apply ARIMA for Secret Spices and Milk
+        # Apply ARIMA for Secret Spices and raw_chicken
         self.apply_arima_model("Secret Spices", positionLimits, desiredPositions)
         self.apply_arima_model("Raw Chicken", positionLimits, desiredPositions)
 
@@ -76,19 +75,19 @@ class Algorithm():
     ########################################################
     # HELPER METHODS
     
-    # Regression model for Fried Chicken
+   
     def apply_regression_model(self, positionLimits, desiredPositions):
         if self.day >= self.lookback:
-            # Get the most recent prices
-            coffee_bean_price = self.data['Secret Spices'][-1]
-            milk_price = self.data['Raw Chicken'][-1]
+          
+            secret_spice_price = self.data['Secret Spices'][-1]
+            raw_chicken_price = self.data['Raw Chicken'][-1]
             # Use the regression equation
-            predicted_coffee_price = 1.5649 + 0.0077 * coffee_bean_price + 0.1565 * milk_price
-            current_coffee_price = self.get_current_price('Fried Chicken')
-            # Decide on the position based on the predicted price
-            price_diff = predicted_coffee_price - current_coffee_price
+            predicted_fried_chicken_price = 1.601476 + 0.167509 * secret_spice_price + 0.006991 * raw_chicken_price
+            current_fried_chicken_price = self.get_current_price('Fried Chicken')
+          
+            price_diff = predicted_fried_chicken_price - current_fried_chicken_price
             if abs(price_diff) > self.threshold:
-                # Use full position limit
+        
                 position = positionLimits['Fried Chicken'] if price_diff > 0 else -positionLimits['Fried Chicken']
                 desiredPositions['Fried Chicken'] = position
 
@@ -111,14 +110,14 @@ class Algorithm():
                 position = positionLimits[instrument] if price_diff > 0 else -positionLimits[instrument]
                 desiredPositions[instrument] = position
 
-    # Adjust positions to stay within budget
+   
     def adjust_positions_for_budget(self, desiredPositions):
         total_value = 0
         prices = {inst: self.get_current_price(inst) for inst in desiredPositions}
-        # Calculate total value of desired positions
+       
         for inst, pos in desiredPositions.items():
             total_value += abs(pos * prices[inst])
-        # If over budget, scale down positions proportionally
+    
         if total_value > self.totalDailyBudget:
             scaling_factor = self.totalDailyBudget / total_value
             for inst in desiredPositions:
@@ -145,7 +144,7 @@ class Algorithm():
             if total_pos_value <= self.totalDailyBudget:
                 return desiredPositions
 
-            # loop through the products in the order pens, dollar, beans, coffee, Raw Chicken, goober, Purple Elixir, jeans to get under
+         
             for inst in ['Quantum Universal Algorithmic Currency Koin', 'UQ Dollar', 'Secret Spices', 'Fried Chicken', 'Raw Chicken', 'Goober Eats', 'Purple Elixir', 'Dawg Food']:
                 # calculate required to reduce
                 reduction_val = total_pos_value - self.totalDailyBudget
@@ -171,39 +170,28 @@ class Algorithm():
         pos_values = {inst: abs(desiredPositions[inst] * prices_current[inst]) for inst in desiredPositions}
         # total trade value is the sum of all trade values
         total_pos_value = sum(pos_values.values())
-        # if self.day == 20:
-        #     # stop all code execution and print all variables
-        #     print('STOPPING')
-        #     print('prices_current', prices_current)
-        #     print('pos_values', pos_values)
-        #     print('total_pos_value', total_pos_value)
-        #     print('desiredPositions', desiredPositions)
-        #     print('currentPositions', currentPositions)
-        #     print('positionLimits', self.positionLimits)
-        #     # stop code execution
-        #     raise Exception('STOPPING')
 
         return total_pos_value, prices_current, pos_values
 
-    def get_fun_drink_position(self, desiredPositions, positionLimits):
-        drinks_df = pd.DataFrame(self.data["Purple Elixir"])
-        pens_df = pd.DataFrame(self.data["Quantum Universal Algorithmic Currency Koin"])
+    def get_prplelixr_position(self, desiredPositions, positionLimits):
+        elixr_df = pd.DataFrame(self.data["Purple Elixir"])
+        quack_df = pd.DataFrame(self.data["Quantum Universal Algorithmic Currency Koin"])
 
-        drinks_df['EMA'] = drinks_df[0].ewm(span=5, adjust=False).mean()
-        pens_df['EMA'] = pens_df[0].ewm(span=5, adjust=False).mean()
+        elixr_df['EMA'] = elixr_df[0].ewm(span=5, adjust=False).mean()
+        quack_df['EMA'] = quack_df[0].ewm(span=5, adjust=False).mean()
 
-        drinks_df['EMA25'] = drinks_df[0].ewm(span=25, adjust=False).mean()
-        drinks_df['Cross'] = drinks_df['EMA'] - drinks_df['EMA25']
+        elixr_df['EMA25'] = elixr_df[0].ewm(span=25, adjust=False).mean()
+        elixr_df['Cross'] = elixr_df['EMA'] - elixr_df['EMA25']
 
         price_drink = self.data['Purple Elixir'][-1]
-        price_pens = self.data['Quantum Universal Algorithmic Currency Koin'][-1]
+        price_quack = self.data['Quantum Universal Algorithmic Currency Koin'][-1]
 
-        ema_drink = drinks_df['EMA'].iloc[-1]
-        ema_pens = pens_df['EMA'].iloc[-1]
+        ema_drink = elixr_df['EMA'].iloc[-1]
+        ema_quack = quack_df['EMA'].iloc[-1]
         
-        cross_signal = drinks_df['Cross'].iloc[-1]
+        cross_signal = elixr_df['Cross'].iloc[-1]
 
-        theo = ema_drink -0.025*ema_pens + 0.055*np.sign(cross_signal)*(abs(cross_signal)**(1/4))
+        theo = ema_drink -0.025*ema_quack + 0.055*np.sign(cross_signal)*(abs(cross_signal)**(1/4))
 
         if price_drink > theo:
             desiredPositions["Purple Elixir"] = -positionLimits["Purple Elixir"]
@@ -224,8 +212,6 @@ class Algorithm():
         return desiredPositions
     
     
-
-    #######################################################################
 
     def get_uq_dollar_position(self, currentPosition, limit):
         avg = sum(self.data["UQ Dollar"][-4:]) / 4
@@ -249,7 +235,7 @@ class Algorithm():
 
         return desiredPosition
 
-    def get_red_pens_position(self, currentPosition, limit):
+    def get_quack_position(self, currentPosition, limit):
         avg = sum(self.data["Quantum Universal Algorithmic Currency Koin"][-10:]) / 10
         price = self.get_current_price("Quantum Universal Algorithmic Currency Koin")
 
@@ -262,12 +248,12 @@ class Algorithm():
 
         return desiredPosition
     
-    def get_jeans_position(self):
-        jeans_df = pd.DataFrame(self.data["Dawg Food"])
-        jeans_df['EMA5'] = jeans_df[0].ewm(span=2, adjust=False).mean()
+    def get_dwgFood_position(self):
+        dwgFood_df = pd.DataFrame(self.data["Dawg Food"])
+        dwgFood_df['EMA5'] = dwgFood_df[0].ewm(span=2, adjust=False).mean()
         # Buy if the price is above the 5 day EMA
         price = self.data['Dawg Food'][-1]
-        ema = jeans_df['EMA5'].iloc[-1]
+        ema = dwgFood_df['EMA5'].iloc[-1]
         if price > ema:
             desiredPositions = -self.positionLimits["Dawg Food"]
         else:
@@ -279,19 +265,19 @@ class Algorithm():
     def apply_regression_model(self, positionLimits, desiredPositions):
         if self.day >= self.lookback:
             # Get the most recent prices
-            coffee_bean_price = self.data['Secret Spices'][-1]
-            milk_price = self.data['Raw Chicken'][-1]
+            secret_spice_price = self.data['Secret Spices'][-1]
+            raw_chicken_price = self.data['Raw Chicken'][-1]
             # Use the regression equation
-            predicted_coffee_price = 1.5649 + 0.0077 * coffee_bean_price + 0.1565 * milk_price
-            current_coffee_price = self.get_current_price('Fried Chicken')
+            predicted_fried_chicken_price = 1.5649 + 0.0077 * secret_spice_price + 0.1565 * raw_chicken_price
+            current_fried_chicken_price = self.get_current_price('Fried Chicken')
             # Decide on the position based on the predicted price
-            price_diff = predicted_coffee_price - current_coffee_price
+            price_diff = predicted_fried_chicken_price - current_fried_chicken_price
             if abs(price_diff) > self.threshold:
                 # Use full position limit
                 position = positionLimits['Fried Chicken'] if price_diff > 0 else -positionLimits['Fried Chicken']
                 desiredPositions['Fried Chicken'] = position
 
-    # ARIMA model for trend-based instruments
+
     def apply_arima_model(self, instrument, positionLimits, desiredPositions, p=1, d=1, q=1):
         if self.day >= self.lookback:
             data = np.array(self.data[instrument])
@@ -345,7 +331,7 @@ class Algorithm():
     # Function to calculate linear extrapolation
     def linear_extrapolation(self, values):
         if len(values) < 5:
-            return np.nan  # Not enough data to extrapolate
+            return np.nan 
         x = np.arange(5)
         y = values[-6:-1]
         coeffs = np.polyfit(x, y, 1)  # Linear fit (degree 1)
@@ -353,7 +339,7 @@ class Algorithm():
         return extrapolated_value
     
     def calculate_gradient(self, values):
-        x = np.arange(5)  # Create an array [0, 1, 2, 3, 4] for 5 prices
+        x = np.arange(5) 
         y = np.array(values)
         # Fit a linear model: y = mx + c
         A = np.vstack([x, np.ones(len(x))]).T
@@ -361,27 +347,3 @@ class Algorithm():
 
         return m
 
-    # # RETURN DESIRED POSITIONS IN DICT FORM
-    # def get_positions(self):
-    #     # Get current position
-    #     currentPositions = self.positions
-    #     # Get position limits
-    #     positionLimits = self.positionLimits
-
-    #     # Declare a store for desired positions
-    #     desiredPositions = {}
-    #     # Initialise to hold positions for all instruments
-    #     for instrument, positionLimit in positionLimits.items():
-    #         desiredPositions[instrument] = 0
-
-    #     # Apply Regression Model for Fried Chicken
-    #     self.apply_regression_model(positionLimits, desiredPositions)
-
-    #     # Apply ARIMA for Secret Spices and Milk
-    #     self.apply_arima_model("Secret Spices", positionLimits, desiredPositions)
-    #     self.apply_arima_model("Milk", positionLimits, desiredPositions)
-
-    #     # Adjust positions for budget
-    #     desiredPositions = self.adjust_positions_for_budget(desiredPositions)
-
-    #     return desiredPositions
