@@ -27,7 +27,7 @@ class Algorithm():
         self.threshold = 0.0005 
         self.lag_order = 1
         self.var_instruments = ['Fried Chicken', 'Raw Chicken', 'Secret Spices']
-        self.totalDailyBudget = 500000 
+        self.totalDailyBudget = 600000 
 
     
     def get_current_price(self, instrument):
@@ -47,8 +47,6 @@ class Algorithm():
         for instrument, positionLimit in positionLimits.items():
             desiredPositions[instrument] = 0
 
-        # Apply Regression Model for Fried Chicken
-        self.apply_regression_model(positionLimits, desiredPositions)
         # IMPLEMENT CODE HERE TO DECIDE WHAT POSITIONS YOU WANT 
         #######################################################################
         desiredPositions["UQ Dollar"] = self.get_uq_dollar_position(currentPositions["UQ Dollar"], positionLimits["UQ Dollar"])
@@ -58,57 +56,54 @@ class Algorithm():
         
         # apply Purple Elixir strategy
         self.get_prplelixr_position(desiredPositions, positionLimits)
-        #desiredPositions["Fintech Token"] = self.get_token_position(currentPositions["Fintech Token"], positionLimits["Fintech Token"])
+        #desiredPositions["Fintech Token"] = self.get_fintech_position(currentPositions["Fintech Token"], positionLimits["Fintech Token"])
         self.apply_arima_model("Fintech Token", positionLimits, desiredPositions, p=2, d=1, q=1)
         # Apply Regression Model for Fried Chicken
         self.apply_regression_model(positionLimits, desiredPositions)
         # Apply ARIMA for Secret Spices and raw_chicken
         self.apply_arima_model("Secret Spices", positionLimits, desiredPositions)
         self.apply_arima_model("Raw Chicken", positionLimits, desiredPositions)
-
+        self.apply_arima_model("Rare Watch", positionLimits, desiredPositions, p=2, d=1, q=1)
         desiredPositions = self.scale_positions(desiredPositions, currentPositions)
-
-
         return desiredPositions
-
 
     ########################################################
     # HELPER METHODS
-    
-   
-    def apply_regression_model(self, positionLimits, desiredPositions):
-        if self.day >= self.lookback:
-          
-            secret_spice_price = self.data['Secret Spices'][-1]
-            raw_chicken_price = self.data['Raw Chicken'][-1]
-            # Use the regression equation
-            predicted_fried_chicken_price = 1.601476 + 0.167509 * secret_spice_price + 0.006991 * raw_chicken_price
-            current_fried_chicken_price = self.get_current_price('Fried Chicken')
-          
-            price_diff = predicted_fried_chicken_price - current_fried_chicken_price
-            if abs(price_diff) > self.threshold:
         
-                position = positionLimits['Fried Chicken'] if price_diff > 0 else -positionLimits['Fried Chicken']
-                desiredPositions['Fried Chicken'] = position
+    def apply_regression_model(self, positionLimits, desiredPositions):
+        FC = self.get_current_price("Fried Chicken")
+        RC = self.get_current_price("Raw Chicken")
+        SS = self.get_current_price("Secret Spices")
+        if(-129.04616223805*FC +21.6126341844*RC  + SS > -194.2325350693):
+            desiredPositions["Fried Chicken"] = positionLimits["Fried Chicken"]
+            desiredPositions["Secret Spices"] = -positionLimits["Secret Spices"]
+            desiredPositions["Raw Chicken"] = -positionLimits["Raw Chicken"]
+            Direction = -1
 
-    # ARIMA model for trend-based instruments
-    def apply_arima_model(self, instrument, positionLimits, desiredPositions, p=0, d=0, q=1):
+        if(-129.04616223805*FC +21.6126341844*RC  + SS < -194.2325350693):
+            desiredPositions["Fried Chicken"] = -positionLimits["Fried Chicken"]
+            desiredPositions["Secret Spices"] = positionLimits["Secret Spices"]
+            desiredPositions["Raw Chicken"] = positionLimits["Raw Chicken"]
+            Direction = 1
+        
+    
+    # def apply_arima_model(self, instrument, positionLimits, desiredPositions, p=0, d=0, q=1):
 
-        if self.day < 10: 
-            p, d, q = 0, 0, 1
+    #     if self.day < 10: 
+    #         p, d, q = 2, 0, 1
 
-        if self.day >= self.lookback:
-            data = np.array(self.data[instrument])
-            model = ARIMA(data, order=(p, d, q))
-            model_fit = model.fit()
-            forecast = model_fit.forecast(steps=1)[0]
+    #     if self.day >= self.lookback:
+    #         data = np.array(self.data[instrument])
+    #         model = ARIMA(data, order=(p, d, q))
+    #         model_fit = model.fit()
+    #         forecast = model_fit.forecast(steps=1)[0]
 
-            current_price = self.get_current_price(instrument)
-            price_diff = forecast - current_price
-            if abs(price_diff) > self.threshold * current_price:
-                # Use full position limit
-                position = positionLimits[instrument] if price_diff > 0 else -positionLimits[instrument]
-                desiredPositions[instrument] = position
+    #         current_price = self.get_current_price(instrument)
+    #         price_diff = forecast - current_price
+    #         if abs(price_diff) > self.threshold * current_price:
+    #             # Use full position limit
+    #             position = positionLimits[instrument] if price_diff > 0 else -positionLimits[instrument]
+    #             desiredPositions[instrument] = position
 
    
     def adjust_positions_for_budget(self, desiredPositions):
@@ -124,6 +119,7 @@ class Algorithm():
                 desiredPositions[inst] = int(desiredPositions[inst] * scaling_factor)
         return desiredPositions
     
+
     def scale_positions(self, desiredPositions, currentPositions):
         total_pos_value, prices_current, pos_values = self.calc_current_total_trade_val(desiredPositions, currentPositions)
         # if the total trade value is greater than the total daily budget, scale down the trade values for tokens
@@ -132,12 +128,12 @@ class Algorithm():
             reduction_val = total_pos_value - self.totalDailyBudget
             # first reduce tokens because they are inneficient, but big size
             # find amount to reduce
-            reduction_Tokens = int(reduction_val/prices_current['Fintech Token'])
+            reduction_Tokens = int(reduction_val/prices_current["Rare Watch"])
             # if trades are positive, reduce trades, otherwise increase trades
-            if pos_values['Fintech Token'] > 0:
-                desiredPositions['Fintech Token'] -= min(reduction_Tokens, desiredPositions['Fintech Token'])
+            if pos_values["Rare Watch"] > 0:
+                desiredPositions["Rare Watch"] -= min(reduction_Tokens, desiredPositions["Rare Watch"])
             else:
-                desiredPositions['Fintech Token'] += min(reduction_Tokens, desiredPositions['Fintech Token'])               
+                desiredPositions["Rare Watch"] += min(reduction_Tokens, desiredPositions["Rare Watch"])               
 
             total_pos_value, prices_current, pos_values = self.calc_current_total_trade_val(desiredPositions, currentPositions)
             # if we are under the budget, return desired positions
@@ -145,7 +141,7 @@ class Algorithm():
                 return desiredPositions
 
          
-            for inst in ['Quantum Universal Algorithmic Currency Koin', 'UQ Dollar', 'Secret Spices', 'Fried Chicken', 'Raw Chicken', 'Goober Eats', 'Purple Elixir', 'Dawg Food']:
+            for inst in ['Fintech Token', 'Quantum Universal Algorithmic Currency Koin', 'UQ Dollar', 'Raw Chicken', 'Secret Spices', 'Fried Chicken' 'Goober Eats', 'Purple Elixir', 'Dawg Food']:
                 # calculate required to reduce
                 reduction_val = total_pos_value - self.totalDailyBudget
                 # find amount to reduce
@@ -163,6 +159,7 @@ class Algorithm():
                     return desiredPositions
         return desiredPositions
                 
+
     def calc_current_total_trade_val(self, desiredPositions, currentPositions):
         # get prices for all instruments as a dictionary
         prices_current = {inst: self.get_current_price(inst) for inst in desiredPositions}
@@ -210,8 +207,6 @@ class Algorithm():
         else:
             desiredPositions = limit
         return desiredPositions
-    
-    
 
     def get_uq_dollar_position(self, currentPosition, limit):
         avg = sum(self.data["UQ Dollar"][-4:]) / 4
@@ -260,22 +255,20 @@ class Algorithm():
             desiredPositions = self.positionLimits["Dawg Food"]
         return desiredPositions
 
-
-        # Regression model for Fried Chicken
-    def apply_regression_model(self, positionLimits, desiredPositions):
-        if self.day >= self.lookback:
-            # Get the most recent prices
-            secret_spice_price = self.data['Secret Spices'][-1]
-            raw_chicken_price = self.data['Raw Chicken'][-1]
-            # Use the regression equation
-            predicted_fried_chicken_price = 1.5649 + 0.0077 * secret_spice_price + 0.1565 * raw_chicken_price
-            current_fried_chicken_price = self.get_current_price('Fried Chicken')
-            # Decide on the position based on the predicted price
-            price_diff = predicted_fried_chicken_price - current_fried_chicken_price
-            if abs(price_diff) > self.threshold:
-                # Use full position limit
-                position = positionLimits['Fried Chicken'] if price_diff > 0 else -positionLimits['Fried Chicken']
-                desiredPositions['Fried Chicken'] = position
+    # def apply_regression_model(self, positionLimits, desiredPositions):
+    #     if self.day >= self.lookback:
+    #         # Get the most recent prices
+    #         secret_spice_price = self.data['Secret Spices'][-1]
+    #         raw_chicken_price = self.data['Raw Chicken'][-1]
+    #         # Use the regression equation
+    #         predicted_fried_chicken_price = 1.601476 + 0.006991 * secret_spice_price + 0.167509 * raw_chicken_price
+    #         current_fried_chicken_price = self.get_current_price('Fried Chicken')
+    #         # Decide on the position based on the predicted price
+    #         price_diff = predicted_fried_chicken_price - current_fried_chicken_price
+    #         if abs(price_diff) > self.threshold:
+    #             # Use full position limit
+    #             position = positionLimits['Fried Chicken'] if price_diff > 0 else -positionLimits['Fried Chicken']
+    #             desiredPositions['Fried Chicken'] = position
 
 
     def apply_arima_model(self, instrument, positionLimits, desiredPositions, p=1, d=1, q=1):
@@ -346,4 +339,3 @@ class Algorithm():
         m, c = np.linalg.lstsq(A, y, rcond=None)[0]
 
         return m
-
